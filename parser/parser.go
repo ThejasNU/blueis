@@ -28,31 +28,31 @@ func NewParser(conn net.Conn) *Parser{
 //############ Helpers #######################################################
 
 //tells whether we are at the end of the line
-func (parser *Parser) atEnd() bool{
-	return parser.index>=len(parser.line)
+func (prsr *Parser) atEnd() bool{
+	return prsr.index>=len(prsr.line)
 }
 
 //return the current character
-func (parser *Parser) current() byte{
-	if parser.atEnd() {
+func (prsr *Parser) current() byte{
+	if prsr.atEnd() {
 		return '\r'
 	}
-	return parser.line[parser.index]
+	return prsr.line[prsr.index]
 }
 
 
 //############ Arguments Parsers #######################################################
 
 //read commands line from the input
-func (parser *Parser) readLine() ([]byte,error) {
+func (prsr *Parser) readLine() ([]byte,error) {
 	//read till we get \r
-	line,err:=parser.reader.ReadBytes('\r')
+	line,err:=prsr.reader.ReadBytes('\r')
 	if err!=nil{
 		return nil,err
 	}
 
 	//checks for \n after \r
-	if _,err=parser.reader.ReadByte();err!=nil{
+	if _,err=prsr.reader.ReadByte();err!=nil{
 		return nil,err
 	}
 
@@ -60,51 +60,51 @@ func (parser *Parser) readLine() ([]byte,error) {
 }
 
 //reads argument from the current line
-func (parser *Parser) parserArg() (s string,err error){
-	for parser.current()==' '{
-		parser.index++
+func (prsr *Parser) parserArg() (s string,err error){
+	for prsr.current()==' '{
+		prsr.index++
 	}
 
-	if parser.current()=='"'{
-		parser.index++
-		buf,err:=parser.parseString()
+	if prsr.current()=='"'{
+		prsr.index++
+		buf,err:=prsr.parseString()
 		return string(buf),err
 	}
 
-	for !parser.atEnd() && parser.current()!=' ' && parser.current() != '\r'{
-		s+=string(parser.current())
-		parser.index++
+	for !prsr.atEnd() && prsr.current()!=' ' && prsr.current() != '\r'{
+		s+=string(prsr.current())
+		prsr.index++
 	}
 
 	return
 }
 
 //reads a string argument from the current line, special case of above function
-func (parser *Parser) parseString() (stream []byte,err error){
-	for parser.current()!='"' && !parser.atEnd(){
-		cur:=parser.current()
-		parser.index++
-		next:=parser.current()
+func (prsr *Parser) parseString() (stream []byte,err error){
+	for prsr.current()!='"' && !prsr.atEnd(){
+		cur:=prsr.current()
+		prsr.index++
+		next:=prsr.current()
 
 		if cur=='\\' && next=='"'{
 			stream = append(stream, '"')
-			parser.index++
+			prsr.index++
 		} else{
 			stream=append(stream, cur)
 		}
 	}
 
-	if parser.current()!='"'{
+	if prsr.current()!='"'{
 		return nil,errors.New("unbalanced quotes in request")
 	}
-	parser.index++
+	prsr.index++
 
 	return
 }
 
 //############ Commands Creator #######################################################
-func (parser *Parser) GetCommand() (*command.Command,error) {
-	b,err := parser.reader.ReadByte()
+func (prsr *Parser) GetCommand() (*command.Command,error) {
+	b,err := prsr.reader.ReadByte()
 
 	if err!=nil{
 		return &command.Command{},err
@@ -112,31 +112,31 @@ func (parser *Parser) GetCommand() (*command.Command,error) {
 
 	//if it starts with * ,RESP array is used or else a single line is input
 	if b=='*'{
-		return parser.parseRespArray()
+		return prsr.parseRespArray()
 	} else{
-		newLine,err:=parser.readLine()
+		newLine,err:=prsr.readLine()
 		if err!=nil{
 			return &command.Command{},err
 		}
-		parser.index=0
-		parser.line=append([]byte{},b)
-		parser.line=append(parser.line, newLine...)
-		return parser.parseInline()
+		prsr.index=0
+		prsr.line=append([]byte{},b)
+		prsr.line=append(prsr.line, newLine...)
+		return prsr.parseInline()
 	}
 }
 
 //parses single line commands
-func (parser *Parser) parseInline() (*command.Command,error){
-	for parser.current()==' '{
-		parser.index++
+func (prsr *Parser) parseInline() (*command.Command,error){
+	for prsr.current()==' '{
+		prsr.index++
 	}
 
 	cmd:=command.Command{
-		Connection: parser.connection,
+		Connection: prsr.connection,
 	}
 
-	for !parser.atEnd(){
-		arg,err:=parser.parserArg()
+	for !prsr.atEnd(){
+		arg,err:=prsr.parserArg()
 
 		if err!=nil{
 			return &cmd,err
@@ -150,13 +150,13 @@ func (parser *Parser) parseInline() (*command.Command,error){
 	return &cmd,nil
 }
 
-//function to parser RESP commands
-func (parser *Parser) parseRespArray() (*command.Command,error){
+//function to parse RESP commands
+func (prsr *Parser) parseRespArray() (*command.Command,error){
 	cmd:=command.Command{
-		Connection: parser.connection,
+		Connection: prsr.connection,
 	}
 
-	input,err:=parser.readLine()
+	input,err:=prsr.readLine()
 	if err!=nil{
 		return &cmd,err
 	}
@@ -165,7 +165,7 @@ func (parser *Parser) parseRespArray() (*command.Command,error){
 	inputArrayLength,_:=strconv.Atoi(string(input))
 
 	for i:=0;i<inputArrayLength;i++{
-		symbol,err:=parser.reader.ReadByte()
+		symbol,err:=prsr.reader.ReadByte()
 		if err!=nil{
 			return &cmd,err
 		}
@@ -173,7 +173,7 @@ func (parser *Parser) parseRespArray() (*command.Command,error){
 		switch symbol{
 		case ':':
 			//denotes intergers
-			arg,err:=parser.readLine()
+			arg,err:=prsr.readLine()
 			if err!=nil{
 				return &cmd,err
 			}
@@ -181,14 +181,14 @@ func (parser *Parser) parseRespArray() (*command.Command,error){
 		
 		case '$':
 			//denotes multiple strings
-			arg,err:=parser.readLine()
+			arg,err:=prsr.readLine()
 			if err!=nil{
 				return &cmd,err
 			}
 			length,_:=strconv.Atoi(string(arg))
 			text:=make([]byte,0)
 			for len(text)<length{
-				line,err:=parser.readLine()
+				line,err:=prsr.readLine()
 				if err!=nil{
 					return &cmd,err
 				}
@@ -197,7 +197,7 @@ func (parser *Parser) parseRespArray() (*command.Command,error){
 			cmd.Args = append(cmd.Args, string(text[:length]))
 		case '*':
 			//denotes array
-			next,err:=parser.parseRespArray()
+			next,err:=prsr.parseRespArray()
 			if err!=nil{
 				return &cmd,err
 			}
