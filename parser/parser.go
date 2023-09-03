@@ -103,11 +103,11 @@ func (parser *Parser) parseString() (stream []byte,err error){
 }
 
 //############ Commands Creator #######################################################
-func (parser *Parser) GetCommand() (command.Command,error) {
+func (parser *Parser) GetCommand() (*command.Command,error) {
 	b,err := parser.reader.ReadByte()
 
 	if err!=nil{
-		return command.Command{},err
+		return &command.Command{},err
 	}
 
 	//if it starts with * ,RESP array is used or else a single line is input
@@ -116,7 +116,7 @@ func (parser *Parser) GetCommand() (command.Command,error) {
 	} else{
 		newLine,err:=parser.readLine()
 		if err!=nil{
-			return command.Command{},err
+			return &command.Command{},err
 		}
 		parser.index=0
 		parser.line=append([]byte{},b)
@@ -126,7 +126,7 @@ func (parser *Parser) GetCommand() (command.Command,error) {
 }
 
 //parses single line commands
-func (parser *Parser) parseInline() (command.Command,error){
+func (parser *Parser) parseInline() (*command.Command,error){
 	for parser.current()==' '{
 		parser.index++
 	}
@@ -139,7 +139,7 @@ func (parser *Parser) parseInline() (command.Command,error){
 		arg,err:=parser.parserArg()
 
 		if err!=nil{
-			return cmd,err
+			return &cmd,err
 		}
 
 		if arg!=""{
@@ -147,18 +147,18 @@ func (parser *Parser) parseInline() (command.Command,error){
 		}
 	}
 
-	return cmd,nil
+	return &cmd,nil
 }
 
 //function to parser RESP commands
-func (parser *Parser) parseRespArray() (command.Command,error){
+func (parser *Parser) parseRespArray() (*command.Command,error){
 	cmd:=command.Command{
 		Connection: parser.connection,
 	}
 
 	input,err:=parser.readLine()
 	if err!=nil{
-		return cmd,err
+		return &cmd,err
 	}
 
 	//first character after * tells how many elements are in RESP array
@@ -167,7 +167,7 @@ func (parser *Parser) parseRespArray() (command.Command,error){
 	for i:=0;i<inputArrayLength;i++{
 		symbol,err:=parser.reader.ReadByte()
 		if err!=nil{
-			return cmd,err
+			return &cmd,err
 		}
 
 		switch symbol{
@@ -175,7 +175,7 @@ func (parser *Parser) parseRespArray() (command.Command,error){
 			//denotes intergers
 			arg,err:=parser.readLine()
 			if err!=nil{
-				return cmd,err
+				return &cmd,err
 			}
 			cmd.Args = append(cmd.Args, string(arg))
 		
@@ -183,14 +183,14 @@ func (parser *Parser) parseRespArray() (command.Command,error){
 			//denotes multiple strings
 			arg,err:=parser.readLine()
 			if err!=nil{
-				return cmd,err
+				return &cmd,err
 			}
 			length,_:=strconv.Atoi(string(arg))
 			text:=make([]byte,0)
 			for len(text)<length{
 				line,err:=parser.readLine()
 				if err!=nil{
-					return cmd,err
+					return &cmd,err
 				}
 				text = append(text, line...)
 			}
@@ -199,11 +199,11 @@ func (parser *Parser) parseRespArray() (command.Command,error){
 			//denotes array
 			next,err:=parser.parseRespArray()
 			if err!=nil{
-				return cmd,err
+				return &cmd,err
 			}
 			cmd.Args = append(cmd.Args, next.Args...)
 		}
 	}
 	
-	return cmd,nil
+	return &cmd,nil
 }
