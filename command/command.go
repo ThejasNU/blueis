@@ -3,6 +3,6 @@ package command
 import "net"
 
 type Command struct{
-	args []string
-	conn net.Conn
+	Args []string
+	Connection net.Conn
 }

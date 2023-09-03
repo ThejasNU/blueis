@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"errors"
 	"net"
+	"strconv"
+
+	"github.com/ThejasNU/blueis/command"
 )
 
 type Parser struct{
@@ -22,6 +25,8 @@ func NewParser(conn net.Conn) *Parser{
 	}
 }
 
+//############ Helpers #######################################################
+
 //tells whether we are at the end of the line
 func (parser *Parser) atEnd() bool{
 	return parser.index>=len(parser.line)
@@ -34,6 +39,9 @@ func (parser *Parser) current() byte{
 	}
 	return parser.line[parser.index]
 }
+
+
+//############ Arguments Parsers #######################################################
 
 //read commands line from the input
 func (parser *Parser) readLine() ([]byte,error) {
@@ -92,4 +100,110 @@ func (parser *Parser) parseString() (stream []byte,err error){
 	parser.index++
 
 	return
+}
+
+//############ Commands Creator #######################################################
+func (parser *Parser) GetCommand() (command.Command,error) {
+	b,err := parser.reader.ReadByte()
+
+	if err!=nil{
+		return command.Command{},err
+	}
+
+	//if it starts with * ,RESP array is used or else a single line is input
+	if b=='*'{
+		return parser.parseRespArray()
+	} else{
+		newLine,err:=parser.readLine()
+		if err!=nil{
+			return command.Command{},err
+		}
+		parser.index=0
+		parser.line=append([]byte{},b)
+		parser.line=append(parser.line, newLine...)
+		return parser.parseInline()
+	}
+}
+
+//parses single line commands
+func (parser *Parser) parseInline() (command.Command,error){
+	for parser.current()==' '{
+		parser.index++
+	}
+
+	cmd:=command.Command{
+		Connection: parser.connection,
+	}
+
+	for !parser.atEnd(){
+		arg,err:=parser.parserArg()
+
+		if err!=nil{
+			return cmd,err
+		}
+
+		if arg!=""{
+			cmd.Args = append(cmd.Args, arg)
+		}
+	}
+
+	return cmd,nil
+}
+
+//function to parser RESP commands
+func (parser *Parser) parseRespArray() (command.Command,error){
+	cmd:=command.Command{
+		Connection: parser.connection,
+	}
+
+	input,err:=parser.readLine()
+	if err!=nil{
+		return cmd,err
+	}
+
+	//first character after * tells how many elements are in RESP array
+	inputArrayLength,_:=strconv.Atoi(string(input))
+
+	for i:=0;i<inputArrayLength;i++{
+		symbol,err:=parser.reader.ReadByte()
+		if err!=nil{
+			return cmd,err
+		}
+
+		switch symbol{
+		case ':':
+			//denotes intergers
+			arg,err:=parser.readLine()
+			if err!=nil{
+				return cmd,err
+			}
+			cmd.Args = append(cmd.Args, string(arg))
+		
+		case '$':
+			//denotes multiple strings
+			arg,err:=parser.readLine()
+			if err!=nil{
+				return cmd,err
+			}
+			length,_:=strconv.Atoi(string(arg))
+			text:=make([]byte,0)
+			for len(text)<length{
+				line,err:=parser.readLine()
+				if err!=nil{
+					return cmd,err
+				}
+				text = append(text, line...)
+			}
+			cmd.Args = append(cmd.Args, string(text[:length]))
+		case '*':
+			//denotes array
+			next,err:=parser.parseRespArray()
+			if err!=nil{
+				return cmd,err
+			}
+			cmd.Args = append(cmd.Args, next.Args...)
+		}
+	}
+	
+	return cmd,nil
 }
