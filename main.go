@@ -28,17 +28,6 @@ func main() {
 }
 
 func startSession(connection net.Conn) {
-	defer func() {
-		log.Panicln("Closing connection", connection)
-		connection.Close()
-	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			log.Println("Recovering from error", err)
-		}
-	}()
-
 	prsr := parser.NewParser(connection)
 
 	for {
@@ -50,7 +39,10 @@ func startSession(connection net.Conn) {
 		}
 
 		if !cmd.Handle() {
-			break
+			log.Println("Closing connection", connection)
+			connection.Close()
+			return
 		}
 	}
+
 }

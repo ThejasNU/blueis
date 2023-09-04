@@ -1,4 +1,5 @@
 # blueis
+
 In-memory key-value store inspired by REDIS, with RESP format and multiple connections support
 
 ## How to use this
@@ -10,6 +11,7 @@ In-memory key-value store inspired by REDIS, with RESP format and multiple conne
 ## Commands
 
 1. Command to fetch value of a key
+
 ```
 GET key
 
@@ -19,6 +21,7 @@ get key
 ```
 
 2. Command to set the value
+
 ```
 SET key value
 
@@ -39,11 +42,17 @@ SET key value NX EX num
 ```
 
 3. Command to delete key
+
 ```
+//delete single key
 DEL key
+
+//delete multiple keys
+DEL key1 key2 key3
 ```
 
 4. Command to quit the connection
+
 ```
 QUIT
 ```
@@ -51,6 +60,7 @@ QUIT
 **NOTE:** If you know RESP format, you can give command in that format too :)
 
 Example:
+
 ```
 *2
 $3
@@ -58,4 +68,3 @@ GET
 $1
 a
 ```
-
